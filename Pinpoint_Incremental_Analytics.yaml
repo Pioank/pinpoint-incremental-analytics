@@ -1,0 +1,269 @@
+  
+AWSTemplateFormatVersion: 2010-09-09
+Description: Pinpoint Incremental Events
+
+Parameters:
+  PinpointProjectId:
+    Type: String
+    Description: Enter the Amazon Pinpoint Project ID, where you would like to implement this solution
+  LambdaCodeBucketName:
+    Type: String
+    Description: Provide a name for the S3 bucket where the Lambda code will be hosted
+  HoneyCodeTableID:
+    Type: String
+    Description: The HoneyCode table ID where the business rules will be hosted
+  HoneyCodeWorkbookID:
+    Type: String
+    Description: The HoneyCode workbook ID which is used to host the business rules table
+  EventStreamARN:
+    Type: String
+    Description: If you have an existing Pinpoint Event Stream setup paste its ARN otherwise leave it empty to create a new Pinpoint Event Stream
+
+Conditions:
+  NeedsEventStream: !Equals [!Ref EventStreamARN, '']
+
+Resources:
+
+#### PINPOINT EVENT STREAMS & EVENT SOURCE MAPPING
+##################################
+  PinpointEventStream:
+    Type: AWS::Pinpoint::EventStream
+    Condition: NeedsEventStream
+    Properties:
+      ApplicationId: !Ref PinpointProjectId
+      DestinationStreamArn: !GetAtt PinpointEventKinesis.Arn
+      RoleArn: !GetAtt PinpointKinesisStreamRole.Arn 
+
+  PinpointEventKinesis:
+    Type: AWS::Kinesis::Stream
+    Condition: NeedsEventStream
+    Properties:
+      ShardCount: 1 
+
+  PinpointKinesisStreamRole:
+    Type: AWS::IAM::Role
+    Condition: NeedsEventStream
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - pinpoint.amazonaws.com
+            Action:
+              - 'sts:AssumeRole'
+      Path: "/"
+      Policies:
+        -
+          PolicyName: "root"
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              -
+                Effect: "Allow"
+                Action:
+                  - "kinesis:PutRecords"
+                  - "kinesis:DescribeStream"
+                Resource: !GetAtt PinpointEventKinesis.Arn
+  
+  MyEventSourceMapping:
+    Type: AWS::Lambda::EventSourceMapping
+    Properties:
+      Enabled: true
+      EventSourceArn: !If
+        - NeedsEventStream
+        - !GetAtt PinpointEventKinesis.Arn
+        - !Ref EventStreamARN      
+      FunctionName: !GetAtt AggregatorLambda.Arn
+      StartingPosition: "TRIM_HORIZON"
+
+#### LAMBDA AGGREGATOR
+##################################
+
+  AggregatorLambda:
+    Type: AWS::Lambda::Function
+    Properties:
+      Handler: index.lambda_handler
+      Role: !GetAtt AggregatorLambdaRole.Arn
+      Runtime: "python3.8"
+      Timeout: 60
+      Environment:
+        Variables:
+          PINPOINT_ID: !Ref PinpointProjectId
+          TABLE_ID: !Ref HoneyCodeTableID
+          WORKBOOK_ID: !Ref HoneyCodeWorkbookID
+      Code:
+          S3Bucket: !Ref LambdaCodeBucketName
+          S3Key: "lambda_aggregator.zip"  
+
+  AggregatorLambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action:
+              - "sts:AssumeRole"
+      Path: "/"
+      ManagedPolicyArns:
+        - "arn:aws:iam::aws:policy/service-role/AWSLambdaKinesisExecutionRole"
+  
+  AggregatorLambdaRolePolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      Roles:
+        - !Ref AggregatorLambdaRole
+      PolicyName: "root"
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: HoneyCodeGettRules
+            Effect: "Allow"
+            Action:
+              - "honeycode:*"
+            Resource: "*"
+          - Sid: DynamoDBCreateUpdateRead
+            Effect: "Allow"
+            Action:
+              - "dynamodb:*"
+            Resource: "*"
+          - Sid: PinpointUpdatePutEvent
+            Effect: "Allow"
+            Action:
+              - "mobiletargeting:*"
+            Resource: !Sub "arn:aws:mobiletargeting:${AWS::Region}:${AWS::AccountId}:*"
+          - Sid: Logs
+            Effect: "Allow"
+            Action:
+              - "logs:CreateLogGroup"
+              - "logs:CreateLogStream"
+              - "logs:PutLogEvents"
+            Resource: !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:*"
+
+#### LAMBDA TIMESERIES
+##################################
+
+  TimeseriesLambda:
+    Type: AWS::Lambda::Function
+    Properties:
+      Handler: index.lambda_handler
+      Role: !GetAtt TimeseriesLambdaRole.Arn
+      Runtime: "python3.8"
+      Timeout: 60
+      Environment:
+        Variables:
+          PINPOINT_ID: !Ref PinpointProjectId
+          TABLE_ID: !Ref HoneyCodeTableID
+          WORKBOOK_ID: !Ref HoneyCodeWorkbookID
+      Code:
+          S3Bucket: !Ref LambdaCodeBucketName
+          S3Key: "lambda_timeseries.zip" 
+
+  TimeseriesLambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action:
+              - "sts:AssumeRole"
+      Path: "/"
+
+  TimeseriesLambdaRolePolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      Roles:
+        - !Ref TimeseriesLambdaRole
+      PolicyName: "root"
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: HoneyCodeGettRules
+            Effect: "Allow"
+            Action:
+              - "honeycode:*"
+            Resource: "*"
+          - Sid: DynamoDBCreateUpdateRead
+            Effect: "Allow"
+            Action:
+              - "dynamodb:*"
+            Resource: "*"
+          - Sid: PinpointUpdatePutEvent
+            Effect: "Allow"
+            Action:
+              - "mobiletargeting:*"
+            Resource: !Sub "arn:aws:mobiletargeting:${AWS::Region}:${AWS::AccountId}:*"
+          - Sid: Logs
+            Effect: "Allow"
+            Action:
+              - "logs:CreateLogGroup"
+              - "logs:CreateLogStream"
+              - "logs:PutLogEvents"
+            Resource: !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:*"
+  
+  CloudWatchInvokeTimeseriesLambdaPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !GetAtt TimeseriesLambda.Arn
+      Principal: events.amazonaws.com
+      SourceArn: !GetAtt CloudWatchTimeseriesEvent.Arn
+
+#### CLOUDWATCH ALARM TRIGGER LAMBDA TIMESERIES
+##################################
+
+  CloudWatchTimeseriesEvent:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: "TriggerTimeseriesLambda"
+      Description: "Invokes Timeseries Lambda"
+      State: "ENABLED"
+      ScheduleExpression: "rate(60 minutes)"
+      Targets:
+        - 
+          Arn: !GetAtt TimeseriesLambda.Arn
+          Id: CloudWatchTimeseriesLambda
+
+#### DYNAMO DB TABLES
+##################################
+
+  DynamoDBAggregator:
+    Type: AWS::DynamoDB::Table
+    Properties: 
+      AttributeDefinitions: 
+      - AttributeName: useridtaskname
+        AttributeType: S
+      KeySchema: 
+      - AttributeName: useridtaskname
+        KeyType: HASH
+      ProvisionedThroughput: 
+        ReadCapacityUnits: '5'
+        WriteCapacityUnits: '5'
+      TableName: "kinesis_pinpoint_aggregator"
+
+  DynamoDBTimeseries:
+    Type: AWS::DynamoDB::Table
+    Properties: 
+      AttributeDefinitions: 
+      - AttributeName: eventname
+        AttributeType: S
+      - AttributeName: dateuserid
+        AttributeType: S
+      KeySchema: 
+      - AttributeName: eventname
+        KeyType: HASH
+      - AttributeName: dateuserid
+        KeyType: RANGE
+      ProvisionedThroughput: 
+        ReadCapacityUnits: '5'
+        WriteCapacityUnits: '5'
+      TableName: "kinesis_pinpoint_timeseries"
