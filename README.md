@@ -1,6 +1,6 @@
 # pinpoint-incremental-analytics
 
-Background 
+Background:
 
 Tracking users’ activity is vital for understanding your customers and identifying opportunities. In a data driven world, having actionable data is fundamental but being able to feed these data into your marketing platforms and use them in business logic often comes as a challenge. It is not uncommon for companies in such situations to either resort in manual processes resulting in missed opportunities or try to build something in-house, which won’t be scalable. Currently Pinpoint cannot aggregate events neither create segments based on an event’s count for a specific period.
 Solution 
@@ -12,7 +12,7 @@ User segmentation based on:
 - Aggregated user activity
 - Aggregated user activity throughout a specified period
 
-Considerations
+Considerations:
 1)	You will need to install Amplify SDK for sending events to Pinpoint and Cognito for user management
 2)	Only custom metrics are being processed at the moment
 3)	HoneyCode is available only in Oregon (us-west-2) region at the moment but the solution will work in any region
