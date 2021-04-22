@@ -8,6 +8,10 @@ Tracking users’ activity is vital for understanding your customers and identif
 
 This solution expands Pinpoint’s existing segmentation and event based journey capabilities, allowing the creation of business rules on events’ count and / or summed metric value per user with the possibility to add date filters. When a rule is met, a user attribute with the event name will be updated to “Ready” or an event with the name trk_event will be fired depending the needs of the Pinpoint user. Business rules will be added through HoneyCode and will require no coding experience. 
 
+**How to implement:**
+
+Follow the detailed guide [here](https://github.com/Pioank/pinpoint-incremental-analytics/blob/main/Pinpoint-Incremental-Analytics-V2.1.pdf)
+
 **Use case(s):**
 
 User segmentation based on:
@@ -27,9 +31,6 @@ User segmentation based on:
 10)	When removing an aggregate business rule from HoneyCode then all related records from the DynamoDB aggregate table will be deleted (assessment every 60 minutes via Time Series Lambda CloudWatch Event Rule)
 11)	Aggregate table records only events that match HoneyCode rules, whereas time series table records all events
 
-**How to implement:**
-
-Follow the detailed guide [here](https://github.com/Pioank/pinpoint-incremental-analytics/blob/main/Pinpoint-Incremental-Analytics-V2.1.pdf)
 
 ## Architecture
 ![alt text](https://github.com/Pioank/pinpoint-incremental-analytics/blob/main/Images/Architecture.JPG)
