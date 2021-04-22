@@ -28,6 +28,7 @@ User segmentation based on:
 11)	Aggregate table records only events that match HoneyCode rules, whereas time series table records all events
 
 **How to implement:**
+
 Follow the detailed guide [here](https://github.com/Pioank/pinpoint-incremental-analytics/blob/main/Pinpoint-Incremental-Analytics-V2.1.pdf)
 
 ## Architecture
