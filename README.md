@@ -16,8 +16,7 @@ User segmentation based on:
 
 **Considerations:**
 
-1)	You will need to install Amplify SDK for sending events to Pinpoint and Cognito for user management
-2)	Only custom metrics are being processed at the moment
+2)	Only custom metrics are being processed at the moment. Events such as email open, read, SMS delivered etc. are not included in this solution
 3)	HoneyCode is available only in Oregon (us-west-2) region at the moment but the solution will work in any region
 4)	When you insert a rule that is using the date filters in Honeycode you will need to wait till it performs its first scan based on the CloudWatch Event Rule scheduling settings. By default, the project sets the CloudWatch Event Rule interval to 60 minutes
 5)	You can only define date periods with start and end date. The date format needs to be strictly YYYY-MM-DD
@@ -27,6 +26,9 @@ User segmentation based on:
 9)	Make sure that the values you are inserting in HoneyCode match exactly the values in Pinpoint (case, spaces etc.)
 10)	When removing an aggregate business rule from HoneyCode then all related records from the DynamoDB aggregate table will be deleted (assessment every 60 minutes via Time Series Lambda CloudWatch Event Rule)
 11)	Aggregate table records only events that match HoneyCode rules, whereas time series table records all events
+
+**How to implement:**
+Follow the detailed guide [here](https://github.com/Pioank/pinpoint-incremental-analytics/blob/main/Pinpoint-Incremental-Analytics-V2.1.pdf)
 
 ## Architecture
 ![alt text](https://github.com/Pioank/pinpoint-incremental-analytics/blob/main/Images/Architecture.JPG)
